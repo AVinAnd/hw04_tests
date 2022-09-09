@@ -50,5 +50,6 @@ class PostsFormsTest(TestCase):
             follow=True
         )
         self.assertEqual(Post.objects.count(), post_count)
-        self.assertRedirects(response, reverse('posts:post_details', kwargs={'post_id': 1}))
+        self.assertRedirects(response, reverse('posts:post_details',
+                                               kwargs={'post_id': 1}))
         self.assertTrue(Post.objects.filter(text='post edit').exists())
