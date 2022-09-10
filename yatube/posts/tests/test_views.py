@@ -108,7 +108,8 @@ class PostsViewsContextTest(TestCase):
     def test_post_in_right_group(self):
         """пост не публикуется в других группах"""
         response = self.author_client.get(
-            reverse('posts:group_list', kwargs={'slug': self.empty_group.slug}))
+            reverse('posts:group_list',
+                    kwargs={'slug': self.empty_group.slug}))
         self.assertEqual(len(response.context['page_obj']), 0)
 
     def test_profile_context(self):
