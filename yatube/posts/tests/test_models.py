@@ -1,17 +1,13 @@
-from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from ..models import Post, Group
-
-User = get_user_model()
-CHARS_IN_STR = 15
+from ..models import Post, Group, User, CHARS_IN_STR
 
 
 class PostModelTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='auth')
+        cls.user = User.objects.create_user('auth')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='Тестовый слаг',
@@ -21,10 +17,6 @@ class PostModelTest(TestCase):
             author=cls.user,
             text='Тестовые пост'
         )
-
-    def setUp(self):
-        self.post = PostModelTest.post
-        self.group = PostModelTest.group
 
     def test_model_have_correct_object_names(self):
         """Проверка работы __str__"""

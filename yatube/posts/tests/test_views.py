@@ -1,11 +1,9 @@
-from django.test import TestCase, Client
-from django.contrib.auth import get_user_model
-from django.urls import reverse
 from django import forms
+from django.test import TestCase, Client
+from django.urls import reverse
 
-from ..models import Post, Group
-
-User = get_user_model()
+from ..models import Post, Group, User
+from ..views import POSTS_ON_SCREEN
 
 
 class PostsViewsTemplateTests(TestCase):
@@ -31,14 +29,14 @@ class PostsViewsTemplateTests(TestCase):
         """view функции используют правильные html шаблоны"""
         field_views = {
             reverse('posts:index'): 'posts/index.html',
-            reverse('posts:group_list', kwargs={'slug': 'test-slug'}):
+            reverse('posts:group_list', kwargs={'slug': self.group.slug}):
                 'posts/group_list.html',
-            reverse('posts:profile', kwargs={'username': 'author'}):
+            reverse('posts:profile', kwargs={'username': self.author}):
                 'posts/profile.html',
-            reverse('posts:post_details', kwargs={'post_id': '1'}):
+            reverse('posts:post_details', kwargs={'post_id': self.post.id}):
                 'posts/post_detail.html',
             reverse('posts:post_create'): 'posts/create_post.html',
-            reverse('posts:post_edit', kwargs={'post_id': '1'}):
+            reverse('posts:post_edit', kwargs={'post_id': self.post.id}):
                 'posts/create_post.html',
         }
         for field, expected_value in field_views.items():
@@ -74,12 +72,14 @@ class PostsViewsContextTest(TestCase):
         self.author_client.force_login(self.author)
 
     def post_context_test(self, reverse_path_name):
+        """функция проверки контекста постов в тестах"""
         response = self.author_client.get(reverse_path_name)
         post = response.context['page_obj'][0]
         fields = {
-            post.text: 'test post',
+            post.text: self.post.text,
             post.author: self.author,
             post.group: self.group,
+            post.id: self.post.id,
         }
         for field, expected_value in fields.items():
             with self.subTest(field=field):
@@ -91,35 +91,50 @@ class PostsViewsContextTest(TestCase):
 
     def test_group_list_context(self):
         """в group_list передан правильный context"""
-        self.post_context_test(
-            reverse('posts:group_list', kwargs={'slug': 'test-slug'}))
+        url = reverse('posts:group_list', kwargs={'slug': self.group.slug})
+        self.post_context_test(url)
+        response = self.author_client.get(url)
+        group = response.context['group']
+        fields = {
+            group.slug: self.group.slug,
+            group.title: self.group.title,
+            group.description: self.group.description,
+            group.id: self.group.id,
+        }
+        for field, expected_value in fields.items():
+            with self.subTest(field=field):
+                self.assertEqual(field, expected_value)
 
     def test_post_in_right_group(self):
         """пост не публикуется в других группах"""
         response = self.author_client.get(
-            reverse('posts:group_list', kwargs={'slug': 'empty-slug'}))
-        self.assertEqual(response.context['page_obj'].__len__(), 0)
+            reverse('posts:group_list', kwargs={'slug': self.empty_group.slug}))
+        self.assertEqual(len(response.context['page_obj']), 0)
 
     def test_profile_context(self):
         """в profile передан правильный context"""
-        self.post_context_test(
-            reverse('posts:profile', kwargs={'username': 'author'}))
+        url = reverse('posts:profile', kwargs={'username': self.author})
+        self.post_context_test(url)
+        response = self.author_client.get(url)
+        author = response.context['author']
+        self.assertEqual(author, self.author)
 
     def test_post_in_right_profile(self):
         """пост не публикуется в чужом профайле"""
         response = self.author_client.get(
-            reverse('posts:profile', kwargs={'username': 'user'}))
-        self.assertEqual(response.context['page_obj'].__len__(), 0)
+            reverse('posts:profile', kwargs={'username': self.user}))
+        self.assertEqual(len(response.context['page_obj']), 0)
 
     def test_post_details_context(self):
         """в post_details передан правильный context"""
         response = self.author_client.get(
-            reverse('posts:post_details', kwargs={'post_id': 1}))
+            reverse('posts:post_details', kwargs={'post_id': self.post.id}))
         post = response.context['post']
         fields = {
-            post.text: 'test post',
+            post.text: self.post.text,
             post.author: self.author,
             post.group: self.group,
+            post.id: self.post.id,
         }
         for field, expected_value in fields.items():
             with self.subTest(field=field):
@@ -139,8 +154,8 @@ class PostsViewsContextTest(TestCase):
 
     def test_post_edit_context(self):
         """в post_edit передан правильный context"""
-        response = self.author_client.get(reverse('posts:post_edit',
-                                                  kwargs={'post_id': 1}))
+        response = self.author_client.get(
+            reverse('posts:post_edit', kwargs={'post_id': self.post.id}))
         form_fields = {
             'text': forms.fields.CharField,
             'group': forms.fields.ChoiceField,
@@ -149,6 +164,7 @@ class PostsViewsContextTest(TestCase):
             with self.subTest(field=field):
                 form_field = response.context.get('form').fields.get(field)
                 self.assertIsInstance(form_field, expected_value)
+        self.assertTrue(response.context.get('is_edit'))
 
 
 class PaginatorTests(TestCase):
@@ -161,14 +177,13 @@ class PaginatorTests(TestCase):
             slug='test-slug',
             description='description'
         )
-        i = 0
-        while i != 13:
-            Post.objects.create(
-                text='text',
-                author=cls.author,
-                group=cls.group
-            )
-            i += 1
+        post = Post(
+            text='test text',
+            author=cls.author,
+            group=cls.group
+        )
+        posts = [post for i in range(0, 13)]
+        Post.objects.bulk_create(posts)
 
     def setUp(self):
         self.author_client = Client()
@@ -176,22 +191,22 @@ class PaginatorTests(TestCase):
 
     def test_paginator_pages(self):
         """на страницы выводится правильное количество записей"""
-        first_page_records = 10
+        first_page_records = POSTS_ON_SCREEN
         second_page_records = 3
         fields = {
             reverse('posts:index'): first_page_records,
             reverse('posts:index') + '?page=2': second_page_records,
             reverse('posts:group_list',
-                    kwargs={'slug': 'test-slug'}
+                    kwargs={'slug': self.group.slug}
                     ): first_page_records,
             reverse('posts:group_list',
-                    kwargs={'slug': 'test-slug'}
+                    kwargs={'slug': self.group.slug}
                     ) + '?page=2': second_page_records,
             reverse('posts:profile',
-                    kwargs={'username': 'author'}
+                    kwargs={'username': self.author}
                     ): first_page_records,
             reverse('posts:profile',
-                    kwargs={'username': 'author'}
+                    kwargs={'username': self.author}
                     ) + '?page=2': second_page_records,
         }
         for path, records in fields.items():
@@ -199,31 +214,30 @@ class PaginatorTests(TestCase):
                 response = self.author_client.get(path)
                 self.assertEqual(len(response.context['page_obj']), records)
 
-    def paginator_posts_context(self, path):
+    def paginator_create_post(self, path):
+        """функция создания нового поста для теста паджинатора"""
+        new_post = Post.objects.create(
+            text='new post',
+            author=self.author,
+            group=self.group
+        )
         response = self.author_client.get(path)
         post = response.context['page_obj'][0]
         fields = {
-            post.text: 'text',
-            post.author: self.author,
-            post.group: self.group,
+            post.text: new_post.text,
+            post.author: new_post.author,
+            post.group: new_post.group,
         }
         for field, expected_value in fields.items():
             with self.subTest(field=field):
                 self.assertEqual(field, expected_value)
 
-    def test_paginator_posts_context(self):
-        """содержимое постов на страницах соответствует ожидаемому"""
-        self.paginator_posts_context(reverse('posts:index'))
-        self.paginator_posts_context(reverse('posts:index') + '?page=2')
-        self.paginator_posts_context(reverse(
+    def test_paginator_create_post(self):
+        """При создании новый пост попадает на верх первой страницы"""
+        self.paginator_create_post(reverse('posts:index'))
+        self.paginator_create_post(reverse(
             'posts:group_list',
-            kwargs={'slug': 'test-slug'}))
-        self.paginator_posts_context(reverse(
-            'posts:group_list',
-            kwargs={'slug': 'test-slug'}) + '?page=2')
-        self.paginator_posts_context(reverse(
+            kwargs={'slug': self.group.slug}))
+        self.paginator_create_post(reverse(
             'posts:profile',
-            kwargs={'username': 'author'}))
-        self.paginator_posts_context(reverse(
-            'posts:profile',
-            kwargs={'username': 'author'}) + '?page=2')
+            kwargs={'username': self.author}))

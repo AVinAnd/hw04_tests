@@ -1,20 +1,7 @@
-from django.test import TestCase, Client
-from django.contrib.auth import get_user_model
 from http import HTTPStatus
+from django.test import TestCase, Client
 
-from ..models import Post, Group
-
-User = get_user_model()
-
-
-class StaticURLTests(TestCase):
-    def setUp(self):
-        self.guest_client = Client()
-
-    def test_homepage(self):
-        """smoke test"""
-        response = self.guest_client.get('/')
-        self.assertEqual(response.status_code, HTTPStatus.OK.value)
+from ..models import Post, Group, User
 
 
 class PostsURLTests(TestCase):
@@ -34,7 +21,6 @@ class PostsURLTests(TestCase):
         )
 
     def setUp(self):
-        self.guest_client = Client()
         self.auth_client = Client()
         self.auth_client.force_login(self.user)
         self.author_client = Client()
@@ -43,47 +29,26 @@ class PostsURLTests(TestCase):
     def test_exist_not_auth_user(self):
         """страницы доступны любому пользователю"""
         field_urls = {
-            '/': HTTPStatus.OK.value,
-            '/group/test-slug/': HTTPStatus.OK.value,
-            '/profile/TestUser/': HTTPStatus.OK.value,
-            '/posts/1/': HTTPStatus.OK.value,
-            '/unexisting_page/': HTTPStatus.NOT_FOUND.value,
+            '/': HTTPStatus.OK,
+            '/group/test-slug/': HTTPStatus.OK,
+            '/profile/TestUser/': HTTPStatus.OK,
+            '/posts/1/': HTTPStatus.OK,
+            '/unexisting_page/': HTTPStatus.NOT_FOUND,
         }
         for field, expected_value in field_urls.items():
             with self.subTest(field=field):
                 self.assertEqual(
-                    self.guest_client.get(field).status_code, expected_value)
+                    self.client.get(field).status_code, expected_value)
 
     def test_exist_auth_user(self):
         """страницы доступны авторизированному пользователю"""
-        field_urls = {
-            '/': HTTPStatus.OK.value,
-            '/group/test-slug/': HTTPStatus.OK.value,
-            '/profile/TestUser/': HTTPStatus.OK.value,
-            '/posts/1/': HTTPStatus.OK.value,
-            '/unexisting_page/': HTTPStatus.NOT_FOUND.value,
-            '/create/': HTTPStatus.OK.value,
-        }
-        for field, expected_value in field_urls.items():
-            with self.subTest(field=field):
-                self.assertEqual(
-                    self.auth_client.get(field).status_code, expected_value)
+        status_code = self.auth_client.get('/create/').status_code
+        self.assertEqual(status_code, HTTPStatus.OK)
 
     def test_exist_author_user(self):
         """страницы доступны автору поста"""
-        field_urls = {
-            '/': HTTPStatus.OK.value,
-            '/group/test-slug/': HTTPStatus.OK.value,
-            '/profile/TestUser/': HTTPStatus.OK.value,
-            '/posts/1/': HTTPStatus.OK.value,
-            '/unexisting_page/': HTTPStatus.NOT_FOUND.value,
-            '/create/': HTTPStatus.OK.value,
-            '/posts/1/edit/': HTTPStatus.OK.value,
-        }
-        for field, expected_value in field_urls.items():
-            with self.subTest(field=field):
-                self.assertEqual(
-                    self.author_client.get(field).status_code, expected_value)
+        status_code = self.author_client.get('/posts/1/edit/').status_code
+        self.assertEqual(status_code, HTTPStatus.OK)
 
     def test_redirect_not_auth_user(self):
         """страницы редиректят неавторизированного пользователя """
@@ -94,7 +59,7 @@ class PostsURLTests(TestCase):
         for field, expected_value in field_urls.items():
             with self.subTest(field=field):
                 self.assertRedirects(
-                    self.guest_client.get(field, follow=True), expected_value)
+                    self.client.get(field, follow=True), expected_value)
 
     def test_redirect_auth_user(self):
         """страница редиректит авторизированного не автора"""
