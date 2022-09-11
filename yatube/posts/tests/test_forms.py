@@ -25,30 +25,25 @@ class PostsFormsTest(TestCase):
 
     def test_form_post_create(self):
         """создается новый пост"""
-        posts_id = []
-        for post in Post.objects.all():
-            posts_id.append(post.id)
-
-        posts_count = Post.objects.count()
+        posts_id = Post.objects.values_list('id', flat=True)
+        posts_count = len(posts_id)
         form_data = {
             'text': 'create post',
             'group': self.group.id,
+            'author': self.author.id,
         }
         response = self.author_client.post(
             reverse('posts:post_create'),
             data=form_data,
             follow=True
         )
-        last_post = Post.objects.exclude(id__in=posts_id)
-        values = last_post.values('text', 'group')[0].values()
-        fields = []
-        for value in values:
-            fields.append(value)
-
+        last_post = Post.objects.exclude(id__in=list(posts_id))
+        self.assertEqual(last_post.count(), 1)
+        values = last_post.values('text', 'group', 'author')[0]
         self.assertEqual(Post.objects.count(), posts_count + 1)
         self.assertRedirects(response, reverse(
             'posts:profile', kwargs={'username': self.author}))
-        self.assertEqual(fields, ['create post', self.group.id])
+        self.assertEqual(values, form_data)
 
     def test_form_post_edit(self):
         """редактируется существующий пост"""
@@ -64,7 +59,7 @@ class PostsFormsTest(TestCase):
         )
         edited_post = Post.objects.get(id=self.post.id)
         values = {
-            edited_post.text: 'post edit',
+            edited_post.text: form_data.get('text'),
             edited_post.group: self.group,
         }
         for field, expected_value in values.items():

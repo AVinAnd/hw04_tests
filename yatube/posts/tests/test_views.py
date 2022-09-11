@@ -178,12 +178,13 @@ class PaginatorTests(TestCase):
             slug='test-slug',
             description='description'
         )
-        post = Post(
-            text='test text',
-            author=cls.author,
-            group=cls.group
-        )
-        posts = [post for i in range(0, 13)]
+        posts = [
+            Post(
+                text=f'test text {num}',
+                author=cls.author,
+                group=cls.group
+            ) for num in range(13)
+        ]
         Post.objects.bulk_create(posts)
 
     def setUp(self):

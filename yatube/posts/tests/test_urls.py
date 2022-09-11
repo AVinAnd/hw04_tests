@@ -1,4 +1,5 @@
 from http import HTTPStatus
+
 from django.test import TestCase, Client
 
 from ..models import Post, Group, User
@@ -30,9 +31,9 @@ class PostsURLTests(TestCase):
         """страницы доступны любому пользователю"""
         field_urls = {
             '/': HTTPStatus.OK,
-            '/group/test-slug/': HTTPStatus.OK,
-            '/profile/TestUser/': HTTPStatus.OK,
-            '/posts/1/': HTTPStatus.OK,
+            f'/group/{self.group.slug}/': HTTPStatus.OK,
+            f'/profile/{self.user}/': HTTPStatus.OK,
+            f'/posts/{self.post.id}/': HTTPStatus.OK,
             '/unexisting_page/': HTTPStatus.NOT_FOUND,
         }
         for field, expected_value in field_urls.items():
@@ -47,14 +48,15 @@ class PostsURLTests(TestCase):
 
     def test_exist_author_user(self):
         """страницы доступны автору поста"""
-        status_code = self.author_client.get('/posts/1/edit/').status_code
+        status_code = self.author_client.get(
+            f'/posts/{self.post.id}/edit/').status_code
         self.assertEqual(status_code, HTTPStatus.OK)
 
     def test_redirect_not_auth_user(self):
         """страницы редиректят неавторизированного пользователя """
         field_urls = {
             '/create/': '/auth/login/?next=/create/',
-            '/posts/1/edit/': '/posts/1/',
+            f'/posts/{self.post.id}/edit/': '/auth/login/',
         }
         for field, expected_value in field_urls.items():
             with self.subTest(field=field):
@@ -63,17 +65,18 @@ class PostsURLTests(TestCase):
 
     def test_redirect_auth_user(self):
         """страница редиректит авторизированного не автора"""
-        response = self.auth_client.get('/posts/1/edit/', follow=True)
-        self.assertRedirects(response, '/posts/1/')
+        response = self.auth_client.get(f'/posts/{self.post.id}/edit/',
+                                        follow=True)
+        self.assertRedirects(response, f'/posts/{self.post.id}/')
 
     def test_urls_templates(self):
         """url использует правильный шаблон html"""
         field_urls = {
             '/': 'posts/index.html',
-            '/group/test-slug/': 'posts/group_list.html',
-            '/profile/TestUser/': 'posts/profile.html',
-            '/posts/1/': 'posts/post_detail.html',
-            '/posts/1/edit/': 'posts/create_post.html',
+            f'/group/{self.group.slug}/': 'posts/group_list.html',
+            f'/profile/{self.user}/': 'posts/profile.html',
+            f'/posts/{self.post.id}/': 'posts/post_detail.html',
+            f'/posts/{self.post.id}/edit/': 'posts/create_post.html',
             '/create/': 'posts/create_post.html',
         }
         for field, expected_value in field_urls.items():

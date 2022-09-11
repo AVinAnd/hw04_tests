@@ -1,6 +1,7 @@
 from django.core.paginator import Paginator
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate
 
 from .models import Post, Group, User
 from .forms import PostForm
@@ -66,9 +67,11 @@ def post_create(request):
 def author_only(func):
     def check_author(request, post_id):
         post = get_object_or_404(Post, pk=post_id)
-        if request.user == post.author:
-            return func(request, post_id)
-        return redirect('posts:post_details', post_id)
+        if request.user.is_authenticated:
+            if request.user == post.author:
+                return func(request, post_id)
+            return redirect('posts:post_details', post_id)
+        return redirect('users:login')
     return check_author
 
 
