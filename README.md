@@ -1,3 +1,36 @@
-# hw04_tests
+# Проект спринта: покрытие тестами.
 
-[![CI](https://github.com/yandex-praktikum/hw04_tests/actions/workflows/python-app.yml/badge.svg?branch=master)](https://github.com/yandex-praktikum/hw04_tests/actions/workflows/python-app.yml)
+Написаны юнит-тесты для учебного django проекта соц.сети yatube.
+
+## Технологии и запуск проекта
+
+Проект написан на языке python, с использованием фреймворка django. 
+Необходимые для работы проекта зависимости описаны в файле requirements.txt
+
+Для запуска проекта:
+- Клонируйте репозиторий
+``` 
+- git clone https://github.com/AVinAnd/api_yamdb.git 
+```
+- Активируйте виртуальное окружение 
+
+```
+python -m venv venv
+source venv/scripts/activate
+```
+- Установите зависимости
+
+``` 
+pip install -r requirements.txt
+```
+- Выполните миграции 
+```
+python manage.py makemigrations
+python manage.py migrate
+```
+- Запустите проект
+```
+python manage.py runserver
+```
+
+Проект доступен по адресу http://127.0.0.1:8000/
